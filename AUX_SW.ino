@@ -86,7 +86,7 @@ unsigned long evasiveTimer = 0;
 #define EVASIVE_MANUVER_FORWARD 4
 #define EVASIVE_MANUVER_STOP 5
 
-const int evasive_maneuver_list[] = {EVASIVE_MANUVER_BACK, EVASIVE_MANUVER_LEFT, EVASIVE_MANUVER_FORWARD, EVASIVE_MANUVER_FORWARD, EVASIVE_MANUVER_RIGHT, EVASIVE_MANUVER_FORWARD, EVASIVE_MANUVER_STOP};
+const int evasive_maneuver_list[] = {EVASIVE_MANUVER_BACK, EVASIVE_MANUVER_LEFT, EVASIVE_MANUVER_FORWARD, EVASIVE_MANUVER_RIGHT, EVASIVE_MANUVER_FORWARD, EVASIVE_MANUVER_RIGHT, EVASIVE_MANUVER_FORWARD. EVASIVE_MANUVER_STOP};
 const int evasive_maneuver_list_length = sizeof(evasive_maneuver_list) / sizeof(evasive_maneuver_list[0]);
 
 int current_evasive_maneuver_pos = 0;
