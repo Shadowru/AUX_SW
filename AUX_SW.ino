@@ -68,7 +68,7 @@ int current_work_mode = INIT_MODE;
 #define EVASIVE_STEER_LEFT 1600
 #define EVASIVE_STEER_RIGHT 1400
 
-#define EVASIVE_SPEED_BACK 1300
+#define EVASIVE_SPEED_BACK 1400 //Разбираюсь с git
 #define EVASIVE_SPEED_FORWARD 1700
 
 //msecs
