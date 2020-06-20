@@ -64,16 +64,33 @@ const int DRIVE_BUMPERHIT_MODE = 4;
 // WORK MODE
 int current_work_mode = INIT_MODE;
 
-//EVASIVE MANUVER
-#define EVASIVE_STEER 1700
-#define EVASIVE_SPEED 1300
+//EVASIVE MANEUVER
+#define EVASIVE_STEER_LEFT 1600
+#define EVASIVE_STEER_RIGHT 1400
+
+#define EVASIVE_SPEED_BACK 1300
+#define EVASIVE_SPEED_FORWARD 1700
+
 //msecs
-#define EVASIVE_INTERVAL 10000000
+#define EVASIVE_INTERVAL 2000000
 
 const bool evasiveManeuverEnabled = true;
 bool evasiveManeuverInit = true;
 bool evasiveManeuverFinished = false;
 unsigned long evasiveTimer = 0;
+
+#define EVASIVE_MANUVER_START 0
+#define EVASIVE_MANUVER_BACK 1
+#define EVASIVE_MANUVER_LEFT 2
+#define EVASIVE_MANUVER_RIGHT 3
+#define EVASIVE_MANUVER_FORWARD 4
+#define EVASIVE_MANUVER_STOP 5
+
+const int evasive_maneuver_list[] = {EVASIVE_MANUVER_BACK, EVASIVE_MANUVER_LEFT, EVASIVE_MANUVER_FORWARD, EVASIVE_MANUVER_RIGHT, EVASIVE_MANUVER_FORWARD, EVASIVE_MANUVER_STOP};
+const int evasive_maneuver_list_length = sizeof(evasive_maneuver_list) / sizeof(evasive_maneuver_list[0]);
+
+int current_evasive_maneuver_pos = 0;
+unsigned long current_evasive_maneuver_timer = 0;
 
 //=======================================================
 void setup() {
@@ -168,9 +185,6 @@ void doBumperHitRoutine(){
 
     if(evasiveManeuverEnabled){
       if(evasiveTimer > micros()){
-        //Serial.print(evasiveTimer);
-        //Serial.print(" - ");
-        //Serial.print(micros());
         doEvasiveManeuver();
         return;
       } else {
@@ -195,7 +209,9 @@ void doBumperHitRoutine(){
 
 void initEvasive(){
   evasiveManeuverInit = true;
-  evasiveTimer = micros() + EVASIVE_INTERVAL;
+  
+  evasiveTimer = micros() + (EVASIVE_INTERVAL * evasive_maneuver_list_length);
+  
   evasiveManeuverFinished = false;
 }
 
@@ -210,14 +226,48 @@ void doEvasiveManeuver(){
     evasiveManeuverInit = false;
     evasiveManeuverFinished = false;
     sendInfoMessage("Init EVM");
+    current_evasive_maneuver_pos = 0;
+    current_evasive_maneuver_timer = micros() + EVASIVE_INTERVAL;
   } else {
     evasiveManeuver();     
   }
 }
 
 void evasiveManeuver(){
-  rc_override(EVASIVE_STEER, EVASIVE_SPEED);
+  if(current_evasive_maneuver_timer > micros()){
+    executeManeuver(evasive_maneuver_list[current_evasive_maneuver_pos]);            
+  } else {
+    current_evasive_maneuver_timer = micros() + EVASIVE_INTERVAL;
+    if(current_evasive_maneuver_pos < evasive_maneuver_list_length-1) 
+    {
+      current_evasive_maneuver_pos++;
+    }
+  }
 }
+
+void executeManeuver(int maneuver){
+  switch(maneuver){
+    case EVASIVE_MANUVER_BACK:
+      rc_override(CENTER_STEER, EVASIVE_SPEED_BACK);
+      break;
+    case EVASIVE_MANUVER_LEFT:
+      rc_override(EVASIVE_STEER_LEFT, CENTER_SPEED);
+      break;
+    case EVASIVE_MANUVER_RIGHT:
+      rc_override(EVASIVE_STEER_RIGHT, CENTER_SPEED);
+      break;
+    case EVASIVE_MANUVER_FORWARD:
+      rc_override(CENTER_STEER, EVASIVE_SPEED_FORWARD);
+      break;
+    case EVASIVE_MANUVER_STOP:
+      rc_override(CENTER_STEER, CENTER_SPEED);
+      break;
+    default:
+      Serial.println("Unknown maneuver");  
+  }
+}
+
+
 
 void doEvasiveManeuverFinished(){
   if(evasiveManeuverFinished){
@@ -227,6 +277,8 @@ void doEvasiveManeuverFinished(){
       Serial.println("Stop EMV");
     }
     sendInfoMessage("Stop EMV");
+    current_evasive_maneuver_pos = 0;
+    current_evasive_maneuver_timer = micros();
     evasiveManeuverFinished = true;
     mav_distance_sensor(3, MIN_DISTANCE + 1);
     delay(100);
@@ -339,7 +391,7 @@ void emergencyStop(){
 }
 
 void stopMotors(){
-  rc_override(1500, 1500);
+  rc_override(CENTER_STEER, CENTER_SPEED);
 }
 
 void disarm(){
