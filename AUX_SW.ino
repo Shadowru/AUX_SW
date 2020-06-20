@@ -141,6 +141,7 @@ void doDriveRoutine(){
 
   //BUMPER HIT
   if(doBumperHit()){
+    
     changeMode(DRIVE_BUMPERHIT_MODE);
     bumperTimer = micros();
     
