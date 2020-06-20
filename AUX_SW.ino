@@ -46,7 +46,7 @@ MedianFilter sonar_filter_1(3, 0);
 MedianFilter sonar_filter_2(3, 0);
 
 //BUMPER
-#define BUMPER_INTERVAL 20000
+#define BUMPER_INTERVAL 2000
 
 #define BUMPER_TRIG_PIN 7
 
@@ -266,8 +266,6 @@ void executeManeuver(int maneuver){
       Serial.println("Unknown maneuver");  
   }
 }
-
-
 
 void doEvasiveManeuverFinished(){
   if(evasiveManeuverFinished){
