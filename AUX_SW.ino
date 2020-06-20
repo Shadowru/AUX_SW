@@ -79,14 +79,24 @@ bool evasiveManeuverInit = true;
 bool evasiveManeuverFinished = false;
 unsigned long evasiveTimer = 0;
 
-#define EVASIVE_MANUVER_START 0
-#define EVASIVE_MANUVER_BACK 1
-#define EVASIVE_MANUVER_LEFT 2
-#define EVASIVE_MANUVER_RIGHT 3
-#define EVASIVE_MANUVER_FORWARD 4
-#define EVASIVE_MANUVER_STOP 5
+#define EVASIVE_MANEUVER_START 0
+#define EVASIVE_MANEUVER_BACK 1
+#define EVASIVE_MANEUVER_LEFT 2
+#define EVASIVE_MANEUVER_RIGHT 3
+#define EVASIVE_MANEUVER_FORWARD 4
+#define EVASIVE_MANEUVER_STOP 5
 
-const int evasive_maneuver_list[] = {EVASIVE_MANUVER_BACK, EVASIVE_MANUVER_LEFT, EVASIVE_MANUVER_FORWARD, EVASIVE_MANUVER_RIGHT, EVASIVE_MANUVER_FORWARD, EVASIVE_MANUVER_RIGHT, EVASIVE_MANUVER_FORWARD. EVASIVE_MANUVER_STOP};
+const int evasive_maneuver_list[] = {
+  EVASIVE_MANEUVER_BACK, 
+  EVASIVE_MANEUVER_LEFT, 
+  EVASIVE_MANEUVER_FORWARD, 
+  EVASIVE_MANEUVER_RIGHT, 
+  EVASIVE_MANEUVER_FORWARD, 
+  EVASIVE_MANEUVER_RIGHT, 
+  EVASIVE_MANEUVER_FORWARD,
+  EVASIVE_MANEUVER_STOP
+  };
+  
 const int evasive_maneuver_list_length = sizeof(evasive_maneuver_list) / sizeof(evasive_maneuver_list[0]);
 
 int current_evasive_maneuver_pos = 0;
@@ -234,6 +244,14 @@ void doEvasiveManeuver(){
 }
 
 void evasiveManeuver(){
+  //Check bumper hit in evasive mode
+
+  if(isBumperHit(BUMPER_TRIG_PIN)){
+    emergencyStop();  
+    initEvasive();
+    return;
+  }
+  
   if(current_evasive_maneuver_timer > micros()){
     executeManeuver(evasive_maneuver_list[current_evasive_maneuver_pos]);            
   } else {
@@ -247,19 +265,19 @@ void evasiveManeuver(){
 
 void executeManeuver(int maneuver){
   switch(maneuver){
-    case EVASIVE_MANUVER_BACK:
+    case EVASIVE_MANEUVER_BACK:
       rc_override(CENTER_STEER, EVASIVE_SPEED_BACK);
       break;
-    case EVASIVE_MANUVER_LEFT:
+    case EVASIVE_MANEUVER_LEFT:
       rc_override(EVASIVE_STEER_LEFT, CENTER_SPEED);
       break;
-    case EVASIVE_MANUVER_RIGHT:
+    case EVASIVE_MANEUVER_RIGHT:
       rc_override(EVASIVE_STEER_RIGHT, CENTER_SPEED);
       break;
-    case EVASIVE_MANUVER_FORWARD:
+    case EVASIVE_MANEUVER_FORWARD:
       rc_override(CENTER_STEER, EVASIVE_SPEED_FORWARD);
       break;
-    case EVASIVE_MANUVER_STOP:
+    case EVASIVE_MANEUVER_STOP:
       rc_override(CENTER_STEER, CENTER_SPEED);
       break;
     default:
