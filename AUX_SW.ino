@@ -12,8 +12,12 @@ SoftwareSerial SerialMAV(RX_PIN, TX_PIN, false);
 
 //mv buffer
 uint8_t buf[MAVLINK_MAX_PACKET_LEN];
+int packet_sequence = 0;
 
 //MAVLINK MODES
+#define MANUAL_MODE 0
+#define AUTO_MODE 10
+
 
 //MAVLINK CONSTANTS
 #define CENTER_STEER 1500
@@ -60,6 +64,17 @@ const int DRIVE_BUMPERHIT_MODE = 4;
 // WORK MODE
 int current_work_mode = INIT_MODE;
 
+//EVASIVE MANUVER
+#define EVASIVE_STEER 1700
+#define EVASIVE_SPEED 1300
+//msecs
+#define EVASIVE_INTERVAL 10000000
+
+const bool evasiveManeuverEnabled = true;
+bool evasiveManeuverInit = true;
+bool evasiveManeuverFinished = false;
+unsigned long evasiveTimer = 0;
+
 //=======================================================
 void setup() {
   //Init SONAR 1
@@ -69,7 +84,7 @@ void setup() {
   pinMode(SONAR2_TRIG_PIN, OUTPUT); 
   pinMode(SONAR2_ECHO_PIN, INPUT);    
   //Init BUMPER
-  pinMode(BUMPER_TRIG_PIN, INPUT_PULLUP); 
+  pinMode(BUMPER_TRIG_PIN, INPUT_PULLDOWN); 
   // init timer
   sonarTimer = micros();
   bumperTimer = micros();
@@ -83,16 +98,17 @@ void setup() {
   //Mavlink serial init
   SerialMAV.begin(115200);
 
-  sendInfoMessage("AUX SW v0.1");
-
   //Start
-  changeMode(DRIVE_MODE);
+  changeMode(IDLE_MODE);
 }
 
 //=======================================================
 void loop() {
 
   switch(current_work_mode){
+    case IDLE_MODE:
+      doIdleMode();
+      break;
     case DRIVE_MODE:
       doDriveRoutine();      
       break;
@@ -100,46 +116,131 @@ void loop() {
       doBumperHitRoutine();      
       break;
     default:
-      delay(100);
+      break;
   }
+  delay(10);
 }
 
 //=======================================================
 //DRIVE MODES
+
+void doIdleMode(){
+  sendInfoMessage("AUX SW v0.1");
+  delay(500);
+  stopMotors();
+  delay(500);
+  disarm();
+  delay(500);
+  setAutoPilotMode(MANUAL_MODE);
+  delay(500);
+  changeMode(DRIVE_MODE);
+}
+
 void doDriveRoutine(){
   mav_distance_sensor(3, MAX_DISTANCE-1);            
 
   //BUMPER HIT
   if(doBumperHit()){
     changeMode(DRIVE_BUMPERHIT_MODE);
-    disarm();
     bumperTimer = micros();
+    
+    if(evasiveManeuverEnabled){
+      initEvasive();
+    }
+    
     return;
   }
 
   if(sonarTimer < micros()){
-    doSonar();
     sonarTimer = micros() + SONAR_INTERVAL;
+    doSonar();
   }
 
 }
 
 void doBumperHitRoutine(){
+ 
   mav_distance_sensor(3, MIN_DISTANCE + 1);
   
   if(bumperTimer < micros()){
+    bumperTimer = micros() + BUMPER_INTERVAL;
+
+    if(evasiveManeuverEnabled){
+      if(evasiveTimer > micros()){
+        //Serial.print(evasiveTimer);
+        //Serial.print(" - ");
+        //Serial.print(micros());
+        doEvasiveManeuver();
+        return;
+      } else {
+        doEvasiveManeuverFinished();
+      }
+    }
     
+    Serial.println("Check bumper");    
     if(isBumperHit(BUMPER_TRIG_PIN)){
       //BUMPER STILL HIT
-      //TODO: backward movement
       emergencyStop();
     } else {
       mav_distance_sensor(3, MAX_DISTANCE-1);            
       changeMode(DRIVE_MODE);
-      arm();
     }
 
-    bumperTimer = micros() + BUMPER_INTERVAL;
+  }
+}
+
+//======================================================
+//EVASIVE FUNCTIONS
+
+void initEvasive(){
+  evasiveManeuverInit = true;
+  evasiveTimer = micros() + EVASIVE_INTERVAL;
+  evasiveManeuverFinished = false;
+}
+
+void doEvasiveManeuver(){
+
+  if(evasiveManeuverInit){
+    disarm();
+    delay(100);
+    setAutoPilotMode(MANUAL_MODE);
+    delay(200);
+    arm();
+    evasiveManeuverInit = false;
+    evasiveManeuverFinished = false;
+    sendInfoMessage("Init EVM");
+  } else {
+    evasiveManeuver();     
+  }
+}
+
+void evasiveManeuver(){
+  rc_override(EVASIVE_STEER, EVASIVE_SPEED);
+}
+
+void doEvasiveManeuverFinished(){
+  if(evasiveManeuverFinished){
+    //
+  } else{
+    if(DEBUG_FLAG){
+      Serial.println("Stop EMV");
+    }
+    sendInfoMessage("Stop EMV");
+    evasiveManeuverFinished = true;
+    mav_distance_sensor(3, MIN_DISTANCE + 1);
+    delay(100);
+    stopMotors();
+    mav_distance_sensor(3, MIN_DISTANCE + 1);
+    delay(100);
+    mav_distance_sensor(3, MIN_DISTANCE + 1);
+    disarm();
+    mav_distance_sensor(3, MIN_DISTANCE + 1);
+    delay(100);
+    mav_distance_sensor(3, MIN_DISTANCE + 1);
+    setAutoPilotMode(AUTO_MODE);
+    delay(300);
+    mav_distance_sensor(3, MIN_DISTANCE + 1);
+    arm();
   }
 }
 
@@ -233,7 +334,11 @@ void emergencyStop(){
     Serial.println("EMERGENCY STOP");
   }
   sendEmergencyMessage("EMERGENCY STOP");
-  rc_override(CENTER_STEER, CENTER_SPEED);
+  stopMotors();
+}
+
+void stopMotors(){
+  rc_override(1500, 1500);
 }
 
 void disarm(){
@@ -277,8 +382,10 @@ void rc_override(int mav_steer, int mav_speed){
   
   mavlink_msg_rc_channels_override_pack(
     0xFF, 0x54, &msg, 0, 0,
-    mav_steer, 0, mav_speed,
-    0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+    mav_steer, 
+    65535, 
+    mav_speed,
+    65535,65535,65535,65535,65535,0,0,0,0,0,0,0,0,0,0
   );    
   
   uint16_t len = mavlink_msg_to_send_buffer(buf, &msg);
@@ -340,4 +447,79 @@ void mav_arm_pack(boolean state) {
   }
   uint16_t len = mavlink_msg_to_send_buffer(buf, &msg);
   SerialMAV.write(buf, len);
+}
+
+void sendServoLong(int servo_num, int servo_pwm){
+  mavlink_message_t msg;
+  
+  mavlink_msg_command_long_pack(0xFF, 0x00, &msg, 1, 1, 183, servo_num, servo_pwm, 0,0,0,0,0,0);
+  
+  uint16_t len = mavlink_msg_to_send_buffer(buf, &msg);
+  SerialMAV.write(buf, len);
+}
+
+void setAutoPilotModeLong(int mode){
+  mavlink_message_t msg;
+  
+  mavlink_msg_command_long_pack(0xFF, 0xBE, &msg, 1, 1, MAV_CMD_DO_SET_MODE, mode, 0, 0,0,0,0,0,0);
+  
+  uint16_t len = mavlink_msg_to_send_buffer(buf, &msg);
+  SerialMAV.write(buf, len);
+}
+
+void setAutoPilotMode(int mode){
+  mavlink_message_t msg;
+  
+  mavlink_msg_set_mode_pack(0xFF, 190, &msg, 1, 1, mode);
+  
+  uint16_t len = mavlink_msg_to_send_buffer(buf, &msg);
+  SerialMAV.write(buf, len);
+}
+
+void send_rc_override_packet(uint16_t channel1, uint16_t channel3) {
+  int pos = 0;
+
+  buf[pos++] = 0xFE;
+  buf[pos++] = 16;
+  buf[pos++] = packet_sequence++;
+  buf[pos++] = 0xFF;
+  buf[pos++] = 0x54;
+  buf[pos++] = 70;
+  //CHANNELS
+  buf[pos++] = channel1 % 256;
+  buf[pos++] = channel1 / 256;
+  buf[pos++] = 0;
+  buf[pos++] = 0;
+  buf[pos++] = channel3 % 256;
+  buf[pos++] = channel3 / 256;
+  buf[pos++] = 0;
+  buf[pos++] = 0;
+  buf[pos++] = 0;
+  buf[pos++] = 0;
+  buf[pos++] = 0;
+  buf[pos++] = 0;
+  buf[pos++] = 0;
+  buf[pos++] = 0;
+  buf[pos++] = 0;
+  buf[pos++] = 0;
+
+  uint16_t crc = checksum(pos, 124);
+  buf[pos++] = crc % 256;
+  buf[pos++] = crc / 256;
+
+  SerialMAV.write(buf, pos);
+}
+
+uint16_t checksum(uint16_t len, uint16_t extra) { // # https://github.com/mavlink/c_library_v1/blob/master/checksum.h
+  uint16_t output = 0xFFFF;
+  uint16_t tmp;
+  for (int i = 1; i < len; i++) {
+    tmp = buf[i] ^ (output & 0xFF);
+    tmp = (tmp ^ (tmp << 4)) & 0xFF;
+    output = ((output >> 8) ^ (tmp << 8) ^ (tmp << 3) ^ (tmp >> 4)) & 0xFFFF;
+  }
+  tmp = extra ^ (output & 0xFF);
+  tmp = (tmp ^ (tmp << 4)) & 0xFF;
+  output = ((output >> 8) ^ (tmp << 8) ^ (tmp << 3) ^ (tmp >> 4)) & 0xFFFF;
+  return output;
 }
