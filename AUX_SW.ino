@@ -79,7 +79,6 @@ void setup() {
     Serial.begin(115200);
     Serial.println("AUX SW v0.1");
   }
-
   
   //Mavlink serial init
   SerialMAV.begin(115200);
@@ -105,6 +104,7 @@ void loop() {
   }
 }
 
+//=======================================================
 //DRIVE MODES
 void doDriveRoutine(){
   mav_distance_sensor(3, MAX_DISTANCE-1);            
@@ -143,6 +143,7 @@ void doBumperHitRoutine(){
   }
 }
 
+//=======================================================
 //BUMPER FUNCTIONS
 boolean doBumperHit(){
   if(isBumperHit(BUMPER_TRIG_PIN)){
@@ -163,6 +164,7 @@ boolean isBumperHit(int bumper_pin){
   return isBumperHit;
 }
 
+//=======================================================
 //SONAR FUNCTIONS
 void doSonar(){
 
@@ -223,6 +225,7 @@ int readSonar(int trigger_pin, int echo_pin){
   return cm;  
 }
 
+//=======================================================
 //DRIVE FUNCTIONS
 
 void emergencyStop(){
@@ -241,6 +244,7 @@ void arm(){
   mav_arm_pack(true);
 }
 
+//=======================================================
 // MESSAGE LAYER
 void sendEmergencyMessage(String message){
   mavlink_message(MAV_SEVERITY_EMERGENCY, message);
