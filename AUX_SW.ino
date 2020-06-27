@@ -132,6 +132,8 @@ void setup() {
 //=======================================================
 void loop() {
 
+  mav_heartbeat_pack();
+  
   switch(current_work_mode){
     case IDLE_MODE:
       doIdleMode();
@@ -164,7 +166,6 @@ void doIdleMode(){
 }
 
 void doDriveRoutine(){
-  mav_distance_sensor(3, MAX_DISTANCE-1);            
 
   //BUMPER HIT
   if(doBumperHit()){
@@ -331,7 +332,7 @@ boolean doBumperHit(){
 boolean isBumperHit(int bumper_pin){
   boolean isBumperHit = digitalRead(bumper_pin) == 0;
   //TODO: filter contact bounce
-  return isBumperHit;
+  return false;//isBumperHit;
 }
 
 //=======================================================
@@ -363,7 +364,7 @@ void doSonar(){
     } else {
       
       if(DEBUG_FLAG){
-        Serial.println("SONAR UNRELIABLE");
+        //Serial.println("SONAR UNRELIABLE");
       }
       
     }
@@ -591,4 +592,31 @@ uint16_t checksum(uint16_t len, uint16_t extra) { // # https://github.com/mavlin
   tmp = (tmp ^ (tmp << 4)) & 0xFF;
   output = ((output >> 8) ^ (tmp << 8) ^ (tmp << 3) ^ (tmp >> 4)) & 0xFFFF;
   return output;
+}
+
+/* This function gets message from the APM and interprete for Mavlink common messages */
+void comm_receive() {
+  mavlink_message_t msg;
+  mavlink_status_t status;
+  
+  while(SerialMAV.available()) {
+    uint8_t c = SerialMAV.read();
+    // Try to get a new message
+    if(mavlink_parse_char(MAVLINK_COMM_0, c, &msg, &status)) {
+      if (DEBUG_FLAG) {
+        Serial.print("MSG ID : ");
+        Serial.println(msg.msgid);
+      }
+    }
+  }
+}
+
+void mav_heartbeat_pack() {
+  mavlink_message_t msg;
+  uint8_t buf[MAVLINK_MAX_PACKET_LEN];
+  
+  // Pack the message
+  mavlink_msg_heartbeat_pack(0xFF, 0x00, &msg, MAV_TYPE_CAMERA, MAV_AUTOPILOT_INVALID, 0x01, 0x01, MAV_STATE_ACTIVE);
+  uint16_t len = mavlink_msg_to_send_buffer(buf, &msg);
+  SerialMAV.write(buf, len);
 }
