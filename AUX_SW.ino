@@ -343,7 +343,7 @@ boolean doBumperHit(){
 boolean isBumperHit(int bumper_pin){
   boolean isBumperHit = digitalRead(bumper_pin) == 0;
   //TODO: filter contact bounce
-  isBumperHit = false;
+  //isBumperHit = false;
   return isBumperHit;
 }
 
