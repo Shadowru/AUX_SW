@@ -9,6 +9,7 @@
 #define TX_PIN 5
 
 SoftwareSerial SerialMAV(RX_PIN, TX_PIN, false);
+//#define SerialMAV Serial1
 
 //mv buffer
 uint8_t buf[MAVLINK_MAX_PACKET_LEN];
@@ -53,7 +54,6 @@ MedianFilter sonar_filter_2(3, 0);
 const boolean DEBUG_FLAG = true;
 
 unsigned long bumperTimer = 0;
-
 
 // WORK MODES
 const int INIT_MODE = 1;
@@ -103,6 +103,15 @@ int current_evasive_maneuver_pos = 0;
 unsigned long current_evasive_maneuver_timer = 0;
 
 //=======================================================
+
+mavlink_message_t recv_msg;
+mavlink_status_t  recv_status;
+
+unsigned long heartbeat_timer = 0;
+
+uint32_t current_autopilot_mode = 0xFF;
+
+//=======================================================
 void setup() {
   //Init SONAR 1
   pinMode(SONAR1_TRIG_PIN, OUTPUT); 
@@ -115,6 +124,7 @@ void setup() {
   // init timer
   sonarTimer = micros();
   bumperTimer = micros();
+  heartbeat_timer = millis();
   
   //DEBUG INTERFACE
   if(DEBUG_FLAG){
@@ -123,7 +133,7 @@ void setup() {
   }
   
   //Mavlink serial init
-  SerialMAV.begin(115200);
+  SerialMAV.begin(19200);
 
   //Start
   changeMode(IDLE_MODE);
@@ -132,7 +142,7 @@ void setup() {
 //=======================================================
 void loop() {
 
-  mav_heartbeat_pack();
+  doSendHeartbeat();
   
   switch(current_work_mode){
     case IDLE_MODE:
@@ -147,7 +157,8 @@ void loop() {
     default:
       break;
   }
-  delay(10);
+
+  comm_receive(recv_msg, recv_status);//delay(10);
 }
 
 //=======================================================
@@ -172,11 +183,11 @@ void doDriveRoutine(){
     
     changeMode(DRIVE_BUMPERHIT_MODE);
     bumperTimer = micros();
-    
+   
     if(evasiveManeuverEnabled){
       initEvasive();
     }
-    
+
     return;
   }
 
@@ -332,9 +343,18 @@ boolean doBumperHit(){
 boolean isBumperHit(int bumper_pin){
   boolean isBumperHit = digitalRead(bumper_pin) == 0;
   //TODO: filter contact bounce
+  isBumperHit = false;
   return isBumperHit;
 }
 
+//=======================================================
+//HEARTBEAT FUNCTIONS
+void doSendHeartbeat(){
+  if(heartbeat_timer < millis()){
+    mav_heartbeat_pack();
+    heartbeat_timer = millis() + 1000;
+  }
+}
 //=======================================================
 //SONAR FUNCTIONS
 void doSonar(){
@@ -595,17 +615,40 @@ uint16_t checksum(uint16_t len, uint16_t extra) { // # https://github.com/mavlin
 }
 
 /* This function gets message from the APM and interprete for Mavlink common messages */
-void comm_receive() {
-  mavlink_message_t msg;
-  mavlink_status_t status;
+void comm_receive(mavlink_message_t recv_msg, mavlink_status_t recv_status) {
+
+  unsigned long read_timer = millis() + 50;
   
-  while(SerialMAV.available()) {
+  while(SerialMAV.available() > 0) {
+
+    if(read_timer < millis()){
+      if(DEBUG_FLAG){
+        Serial.println("RCV timeout");
+      }
+      return;
+    }
+    
     uint8_t c = SerialMAV.read();
+    
     // Try to get a new message
-    if(mavlink_parse_char(MAVLINK_COMM_0, c, &msg, &status)) {
-      if (DEBUG_FLAG) {
-        Serial.print("MSG ID : ");
-        Serial.println(msg.msgid);
+    if(mavlink_parse_char(MAVLINK_COMM_0, c, &recv_msg, &recv_status)) {
+      switch(recv_msg.msgid) {
+        case MAVLINK_MSG_ID_HEARTBEAT:  // #0: Heartbeat
+          {
+            uint8_t base_mode = mavlink_msg_heartbeat_get_base_mode(&recv_msg);
+            if((MAV_MODE_FLAG_CUSTOM_MODE_ENABLED & base_mode) > 0){
+              uint32_t custom_autopilot_mode = mavlink_msg_heartbeat_get_custom_mode(&recv_msg);
+              if(current_autopilot_mode != custom_autopilot_mode){
+                current_autopilot_mode = custom_autopilot_mode;
+
+                if(DEBUG_FLAG){
+                  Serial.print("Mode : ");
+                  Serial.println(current_autopilot_mode);
+                }
+              }
+            }
+          }
+          break;
       }
     }
   }
@@ -616,7 +659,7 @@ void mav_heartbeat_pack() {
   uint8_t buf[MAVLINK_MAX_PACKET_LEN];
   
   // Pack the message
-  mavlink_msg_heartbeat_pack(0xFF, 0x00, &msg, MAV_TYPE_CAMERA, MAV_AUTOPILOT_INVALID, 0x01, 0x01, MAV_STATE_ACTIVE);
+  mavlink_msg_heartbeat_pack(0x01, MAV_COMP_ID_OBSTACLE_AVOIDANCE, &msg, MAV_TYPE_CAMERA, MAV_AUTOPILOT_INVALID, 0x01, 0x00, MAV_STATE_ACTIVE);
   uint16_t len = mavlink_msg_to_send_buffer(buf, &msg);
   SerialMAV.write(buf, len);
 }
