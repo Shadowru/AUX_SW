@@ -60,6 +60,7 @@ const int INIT_MODE = 1;
 const int IDLE_MODE = 2;
 const int DRIVE_MODE = 3;
 const int DRIVE_BUMPERHIT_MODE = 4;
+const int DRIVE_ACRO_MODE = 5;
 
 // WORK MODE
 int current_work_mode = INIT_MODE;
@@ -85,6 +86,9 @@ unsigned long evasiveTimer = 0;
 #define EVASIVE_MANEUVER_RIGHT 3
 #define EVASIVE_MANEUVER_FORWARD 4
 #define EVASIVE_MANEUVER_STOP 5
+#define HATCH_OPEN 6
+#define HATCH_CLOSE 7
+#define SWITCH_TO_AUTO 8
 
 const int evasive_maneuver_list[] = {
   EVASIVE_MANEUVER_BACK, 
@@ -96,11 +100,30 @@ const int evasive_maneuver_list[] = {
   EVASIVE_MANEUVER_FORWARD,
   EVASIVE_MANEUVER_STOP
   };
-  
-const int evasive_maneuver_list_length = sizeof(evasive_maneuver_list) / sizeof(evasive_maneuver_list[0]);
 
+const int evasive_maneuver_list_length = sizeof(evasive_maneuver_list) / sizeof(evasive_maneuver_list[0]);  
+
+const bool acroManeuverEnabled = true;
+bool acroManeuverInit = true;
+bool acroManeuverFinished = false;
+unsigned long acroTimer = 0;
+
+const int acro_maneuver_list[] = {
+  HATCH_OPEN,
+  EVASIVE_MANEUVER_BACK,
+  HATCH_CLOSE,
+  SWITCH_TO_AUTO
+};
+
+const int acro_maneuver_list_length = sizeof(acro_maneuver_list) / sizeof(acro_maneuver_list[0]);  
+
+
+//TODO: FIX TO COMMON FUNCTIONS
 int current_evasive_maneuver_pos = 0;
 unsigned long current_evasive_maneuver_timer = 0;
+
+int current_acro_maneuver_pos = 0;
+unsigned long current_acro_maneuver_timer = 0;
 
 //=======================================================
 
@@ -141,7 +164,7 @@ void setup() {
 
 //=======================================================
 void loop() {
-
+  //TODO: bumper hit in main cycle
   doSendHeartbeat();
   
   switch(current_work_mode){
@@ -154,10 +177,13 @@ void loop() {
     case DRIVE_BUMPERHIT_MODE:
       doBumperHitRoutine();      
       break;
+    case DRIVE_ACRO_MODE:
+      doAcroMode();
+      break;
     default:
       break;
   }
-
+  //TODO : FIX SET ACRO DRIVE MODE IN RCV PROCEDURE
   comm_receive(recv_msg, recv_status);//delay(10);
 }
 
@@ -226,6 +252,91 @@ void doBumperHitRoutine(){
   }
 }
 
+void doAcroMode(){
+    if(acroTimer > micros()){
+        doAcroManeuver();
+        return;
+      } else {
+        doAcroManeuverFinished();
+      }
+}
+
+//=====================================================
+//ACRO MODE
+
+void initAcroMode(){
+  acroManeuverInit = true;
+  
+  acroTimer = micros() + (EVASIVE_INTERVAL * acro_maneuver_list_length);
+  
+  acroManeuverFinished = false;
+}
+
+void doAcroManeuver(){
+
+  if(acroManeuverInit){
+    disarm();
+    delay(100);
+    setAutoPilotMode(MANUAL_MODE);
+    delay(200);
+    arm();
+    acroManeuverInit = false;
+    acroManeuverFinished = false;
+    sendInfoMessage("Init Acro");
+    current_acro_maneuver_pos = 0;
+    current_acro_maneuver_timer = micros() + EVASIVE_INTERVAL;
+  } else {
+    acroManeuver();     
+  }
+}
+
+void acroManeuver(){
+  //Check bumper hit in evasive mode
+
+  if(isBumperHit(BUMPER_TRIG_PIN)){
+    emergencyStop();  
+    initEvasive();
+    return;
+  }
+  
+  if(current_acro_maneuver_timer > micros()){
+    executeManeuver(acro_maneuver_list[current_acro_maneuver_pos]);            
+  } else {
+    current_acro_maneuver_timer = micros() + EVASIVE_INTERVAL;
+    if(current_acro_maneuver_pos < evasive_maneuver_list_length-1) 
+    {
+      current_acro_maneuver_pos++;
+    }
+  }
+}
+
+void doAcroManeuverFinished(){
+  if(acroManeuverFinished){
+    //
+  } else{
+    if(DEBUG_FLAG){
+      Serial.println("Stop EMV");
+    }
+    sendInfoMessage("Stop EMV");
+    current_acro_maneuver_pos = 0;
+    current_acro_maneuver_timer = micros();
+    acroManeuverFinished = true;
+    mav_distance_sensor(3, MIN_DISTANCE + 1);
+    delay(100);
+    stopMotors();
+    mav_distance_sensor(3, MIN_DISTANCE + 1);
+    delay(100);
+    mav_distance_sensor(3, MIN_DISTANCE + 1);
+    disarm();
+    mav_distance_sensor(3, MIN_DISTANCE + 1);
+    delay(100);
+    mav_distance_sensor(3, MIN_DISTANCE + 1);
+    setAutoPilotMode(AUTO_MODE);
+    delay(300);
+    mav_distance_sensor(3, MIN_DISTANCE + 1);
+    arm();
+  }
+}
 //======================================================
 //EVASIVE FUNCTIONS
 
@@ -291,6 +402,21 @@ void executeManeuver(int maneuver){
       break;
     case EVASIVE_MANEUVER_STOP:
       rc_override(CENTER_STEER, CENTER_SPEED);
+      break;
+    case HATCH_OPEN:
+      openHatch();
+      break;      
+    case HATCH_CLOSE:
+      closeHatch();
+      break;
+    case SWITCH_TO_AUTO:
+      disarm();
+      mav_distance_sensor(3, MIN_DISTANCE + 1);
+      delay(100);
+      mav_distance_sensor(3, MIN_DISTANCE + 1);
+      setAutoPilotMode(AUTO_MODE);
+      delay(300);
+      arm();
       break;
     default:
       Serial.println("Unknown maneuver");  
@@ -457,6 +583,18 @@ void sendInfoMessage(String message){
   mavlink_message(MAV_SEVERITY_INFO, message);
 }
 
+//=============================================
+
+#define HATCH_SERVO 5
+
+void openHatch(){
+  sendServoLong(HATCH_SERVO, 1300);
+}
+
+void closeHatch(){
+  sendServoLong(HATCH_SERVO, 1900);
+}
+
 // SERVICE LAYER
 
 void changeMode(int mode){
@@ -614,6 +752,8 @@ uint16_t checksum(uint16_t len, uint16_t extra) { // # https://github.com/mavlin
   return output;
 }
 
+#define ACRO_MODE 1
+
 /* This function gets message from the APM and interprete for Mavlink common messages */
 void comm_receive(mavlink_message_t recv_msg, mavlink_status_t recv_status) {
 
@@ -645,6 +785,12 @@ void comm_receive(mavlink_message_t recv_msg, mavlink_status_t recv_status) {
                   Serial.print("Mode : ");
                   Serial.println(current_autopilot_mode);
                 }
+                //TODO: MOVE TO ACRO ROUTINE
+                if(current_autopilot_mode == ACRO_MODE){
+                  changeMode(DRIVE_ACRO_MODE);
+                  initAcroMode();
+                }
+                
               }
             }
           }
