@@ -111,8 +111,7 @@ unsigned long acroTimer = 0;
 const int acro_maneuver_list[] = {
   HATCH_OPEN,
   EVASIVE_MANEUVER_BACK,
-  HATCH_CLOSE,
-  SWITCH_TO_AUTO
+  HATCH_CLOSE
 };
 
 const int acro_maneuver_list_length = sizeof(acro_maneuver_list) / sizeof(acro_maneuver_list[0]);  
