@@ -155,7 +155,7 @@ void setup() {
   }
   
   //Mavlink serial init
-  SerialMAV.begin(19200);
+  SerialMAV.begin(57600);
 
   //Start
   changeMode(IDLE_MODE);
