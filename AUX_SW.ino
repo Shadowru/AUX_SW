@@ -111,6 +111,8 @@ unsigned long acroTimer = 0;
 const int acro_maneuver_list[] = {
   HATCH_OPEN,
   EVASIVE_MANEUVER_BACK,
+  EVASIVE_MANEUVER_BACK,
+  EVASIVE_MANEUVER_BACK,
   HATCH_CLOSE
 };
 
@@ -299,7 +301,7 @@ void acroManeuver(){
   }
   
   if(current_acro_maneuver_timer > micros()){
-    executeManeuver(acro_maneuver_list[current_acro_maneuver_pos]);            
+    executeManeuver(acro_maneuver_list[current_acro_maneuver_pos]);
   } else {
     current_acro_maneuver_timer = micros() + EVASIVE_INTERVAL;
     if(current_acro_maneuver_pos < evasive_maneuver_list_length-1) 
@@ -314,9 +316,9 @@ void doAcroManeuverFinished(){
     //
   } else{
     if(DEBUG_FLAG){
-      Serial.println("Stop EMV");
+      Serial.println("Stop ACRO");
     }
-    sendInfoMessage("Stop EMV");
+    sendInfoMessage("Stop ACRO");
     current_acro_maneuver_pos = 0;
     current_acro_maneuver_timer = micros();
     acroManeuverFinished = true;
