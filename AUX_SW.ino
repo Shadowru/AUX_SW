@@ -586,14 +586,14 @@ void sendInfoMessage(String message){
 
 //=============================================
 
-#define HATCH_SERVO 5
+#define HATCH_SERVO 5.0
 
 void openHatch(){
-  sendServoLong(HATCH_SERVO, 1300);
+  sendServoLong(1900);
 }
 
 void closeHatch(){
-  sendServoLong(HATCH_SERVO, 1900);
+  sendServoLong(1100);
 }
 
 // SERVICE LAYER
@@ -605,6 +605,11 @@ void changeMode(int mode){
    }
    sendInfoMessage("MODE:" + String(mode));
 }
+
+void getMode(){
+  return current_work_mode;
+}
+
 
 void rc_override(int mav_steer, int mav_speed){
   mavlink_message_t msg;
@@ -678,10 +683,31 @@ void mav_arm_pack(boolean state) {
   SerialMAV.write(buf, len);
 }
 
-void sendServoLong(int servo_num, int servo_pwm){
+void sendServoLong(int servo_pwm){
   mavlink_message_t msg;
   
-  mavlink_msg_command_long_pack(0xFF, 0x00, &msg, 1, 1, 183, servo_num, servo_pwm, 0,0,0,0,0,0);
+  mavlink_msg_rc_channels_override_pack(
+    0xFF, 0x54, &msg, 0, 0,
+    65535, 
+    65535, 
+    65535,
+    65535,65535,servo_pwm,65535,65535,0,0,0,0,0,0,0,0,0,0
+  );    
+  
+  uint16_t len = mavlink_msg_to_send_buffer(buf, &msg);
+  SerialMAV.write(buf, len);
+
+}
+
+void sendServoLong2(float servo_num, float servo_pwm){
+  mavlink_message_t msg;
+  
+  mavlink_msg_command_long_pack(0xFF, 0x00, &msg, 
+  0x01, 0x01, 
+  MAV_CMD_DO_SET_SERVO, 
+  servo_num, 
+  servo_pwm, 
+  0,0,0,0,0,0);
   
   uint16_t len = mavlink_msg_to_send_buffer(buf, &msg);
   SerialMAV.write(buf, len);
@@ -703,54 +729,6 @@ void setAutoPilotMode(int mode){
   
   uint16_t len = mavlink_msg_to_send_buffer(buf, &msg);
   SerialMAV.write(buf, len);
-}
-
-void send_rc_override_packet(uint16_t channel1, uint16_t channel3) {
-  int pos = 0;
-
-  buf[pos++] = 0xFE;
-  buf[pos++] = 16;
-  buf[pos++] = packet_sequence++;
-  buf[pos++] = 0xFF;
-  buf[pos++] = 0x54;
-  buf[pos++] = 70;
-  //CHANNELS
-  buf[pos++] = channel1 % 256;
-  buf[pos++] = channel1 / 256;
-  buf[pos++] = 0;
-  buf[pos++] = 0;
-  buf[pos++] = channel3 % 256;
-  buf[pos++] = channel3 / 256;
-  buf[pos++] = 0;
-  buf[pos++] = 0;
-  buf[pos++] = 0;
-  buf[pos++] = 0;
-  buf[pos++] = 0;
-  buf[pos++] = 0;
-  buf[pos++] = 0;
-  buf[pos++] = 0;
-  buf[pos++] = 0;
-  buf[pos++] = 0;
-
-  uint16_t crc = checksum(pos, 124);
-  buf[pos++] = crc % 256;
-  buf[pos++] = crc / 256;
-
-  SerialMAV.write(buf, pos);
-}
-
-uint16_t checksum(uint16_t len, uint16_t extra) { // # https://github.com/mavlink/c_library_v1/blob/master/checksum.h
-  uint16_t output = 0xFFFF;
-  uint16_t tmp;
-  for (int i = 1; i < len; i++) {
-    tmp = buf[i] ^ (output & 0xFF);
-    tmp = (tmp ^ (tmp << 4)) & 0xFF;
-    output = ((output >> 8) ^ (tmp << 8) ^ (tmp << 3) ^ (tmp >> 4)) & 0xFFFF;
-  }
-  tmp = extra ^ (output & 0xFF);
-  tmp = (tmp ^ (tmp << 4)) & 0xFF;
-  output = ((output >> 8) ^ (tmp << 8) ^ (tmp << 3) ^ (tmp >> 4)) & 0xFFFF;
-  return output;
 }
 
 #define ACRO_MODE 1
@@ -787,7 +765,7 @@ void comm_receive(mavlink_message_t recv_msg, mavlink_status_t recv_status) {
                   Serial.println(current_autopilot_mode);
                 }
                 //TODO: MOVE TO ACRO ROUTINE
-                if(current_autopilot_mode == ACRO_MODE){
+                if(current_autopilot_mode == ACRO_MODE && getMode != DRIVE_ACRO_MODE){
                   changeMode(DRIVE_ACRO_MODE);
                   initAcroMode();
                 }
