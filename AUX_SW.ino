@@ -683,7 +683,7 @@ void mav_arm_pack(boolean state) {
   SerialMAV.write(buf, len);
 }
 
-void sendServoLong(int servo_pwm){
+void sendServoLong2(int servo_pwm){
   mavlink_message_t msg;
   
   mavlink_msg_rc_channels_override_pack(
@@ -699,15 +699,16 @@ void sendServoLong(int servo_pwm){
 
 }
 
-void sendServoLong2(float servo_num, float servo_pwm){
+void sendServoLong(float servo_pwm){
   mavlink_message_t msg;
   
   mavlink_msg_command_long_pack(0xFF, 0x00, &msg, 
   0x01, 0x01, 
   MAV_CMD_DO_SET_SERVO, 
-  servo_num, 
+  0,
+  5.0, 
   servo_pwm, 
-  0,0,0,0,0,0);
+  0,0,0,0,0);
   
   uint16_t len = mavlink_msg_to_send_buffer(buf, &msg);
   SerialMAV.write(buf, len);
