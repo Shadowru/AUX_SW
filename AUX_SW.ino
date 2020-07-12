@@ -112,6 +112,14 @@ const int acro_maneuver_list[] = {
   HATCH_OPEN,
   EVASIVE_MANEUVER_BACK,
   EVASIVE_MANEUVER_BACK,
+  EVASIVE_MANEUVER_LEFT, 
+  EVASIVE_MANEUVER_BACK,
+  EVASIVE_MANEUVER_BACK,
+  EVASIVE_MANEUVER_LEFT, 
+  EVASIVE_MANEUVER_BACK,
+  EVASIVE_MANEUVER_BACK,
+  EVASIVE_MANEUVER_RIGHT, 
+  EVASIVE_MANEUVER_BACK,
   EVASIVE_MANEUVER_BACK,
   HATCH_CLOSE
 };
@@ -157,7 +165,7 @@ void setup() {
   }
   
   //Mavlink serial init
-  SerialMAV.begin(57600);
+  SerialMAV.begin(19200);
 
   //Start
   changeMode(IDLE_MODE);
@@ -737,14 +745,11 @@ void setAutoPilotMode(int mode){
 /* This function gets message from the APM and interprete for Mavlink common messages */
 void comm_receive(mavlink_message_t recv_msg, mavlink_status_t recv_status) {
 
-  unsigned long read_timer = millis() + 50;
+  unsigned long read_timer = millis() + 30;
   
   while(SerialMAV.available() > 0) {
 
     if(read_timer < millis()){
-      if(DEBUG_FLAG){
-        Serial.println("RCV timeout");
-      }
       return;
     }
     
