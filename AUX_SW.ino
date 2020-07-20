@@ -112,15 +112,13 @@ const int acro_maneuver_list[] = {
   HATCH_OPEN,
   EVASIVE_MANEUVER_BACK,
   EVASIVE_MANEUVER_BACK,
-  EVASIVE_MANEUVER_LEFT, 
-  EVASIVE_MANEUVER_BACK,
-  EVASIVE_MANEUVER_BACK,
-  EVASIVE_MANEUVER_LEFT, 
-  EVASIVE_MANEUVER_BACK,
-  EVASIVE_MANEUVER_BACK,
   EVASIVE_MANEUVER_RIGHT, 
   EVASIVE_MANEUVER_BACK,
   EVASIVE_MANEUVER_BACK,
+  EVASIVE_MANEUVER_LEFT, 
+  EVASIVE_MANEUVER_BACK,
+  EVASIVE_MANEUVER_BACK,
+  HATCH_CLOSE,
   HATCH_CLOSE
 };
 
@@ -166,6 +164,7 @@ void setup() {
   
   //Mavlink serial init
   SerialMAV.begin(19200);
+  //SerialMAV.begin(9600);
 
   //Start
   changeMode(IDLE_MODE);
@@ -312,7 +311,7 @@ void acroManeuver(){
     executeManeuver(acro_maneuver_list[current_acro_maneuver_pos]);
   } else {
     current_acro_maneuver_timer = micros() + EVASIVE_INTERVAL;
-    if(current_acro_maneuver_pos < evasive_maneuver_list_length-1) 
+    if(current_acro_maneuver_pos < acro_maneuver_list_length-1) 
     {
       current_acro_maneuver_pos++;
     }
@@ -367,6 +366,7 @@ void doEvasiveManeuver(){
     arm();
     evasiveManeuverInit = false;
     evasiveManeuverFinished = false;
+    Serial.println("Init EVM");
     sendInfoMessage("Init EVM");
     current_evasive_maneuver_pos = 0;
     current_evasive_maneuver_timer = micros() + EVASIVE_INTERVAL;
@@ -601,7 +601,7 @@ void openHatch(){
 }
 
 void closeHatch(){
-  sendServoLong(2100);
+  sendServoLong(2000);
 }
 
 // SERVICE LAYER
@@ -625,8 +625,8 @@ void rc_override(int mav_steer, int mav_speed){
   mavlink_msg_rc_channels_override_pack(
     0xFF, 0x54, &msg, 0, 0,
     mav_steer, 
-    65535, 
-    mav_speed,
+    mav_speed, 
+    65535,
     65535,65535,65535,65535,65535,0,0,0,0,0,0,0,0,0,0
   );    
   
@@ -750,6 +750,7 @@ void comm_receive(mavlink_message_t recv_msg, mavlink_status_t recv_status) {
   while(SerialMAV.available() > 0) {
 
     if(read_timer < millis()){
+      //Serial.println("RCV_TIMEOUT");
       return;
     }
     
