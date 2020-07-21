@@ -597,11 +597,11 @@ void sendInfoMessage(String message){
 #define HATCH_SERVO 5.0
 
 void openHatch(){
-  sendServoLong(850);
+  sendServoLong(2000);
 }
 
 void closeHatch(){
-  sendServoLong(2000);
+  sendServoLong(850);
 }
 
 // SERVICE LAYER
