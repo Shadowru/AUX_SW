@@ -73,7 +73,7 @@ int current_work_mode = INIT_MODE;
 #define EVASIVE_SPEED_FORWARD 1700
 
 //msecs
-#define EVASIVE_INTERVAL 2000000
+#define EVASIVE_INTERVAL 1000000
 
 const bool evasiveManeuverEnabled = true;
 bool evasiveManeuverInit = true;
@@ -92,14 +92,15 @@ unsigned long evasiveTimer = 0;
 
 const int evasive_maneuver_list[] = {
   EVASIVE_MANEUVER_BACK, 
+  EVASIVE_MANEUVER_BACK, 
   EVASIVE_MANEUVER_LEFT, 
   EVASIVE_MANEUVER_FORWARD, 
-  EVASIVE_MANEUVER_RIGHT, 
   EVASIVE_MANEUVER_FORWARD, 
   EVASIVE_MANEUVER_RIGHT, 
-  EVASIVE_MANEUVER_FORWARD,
+  EVASIVE_MANEUVER_FORWARD, 
+  EVASIVE_MANEUVER_FORWARD, 
   EVASIVE_MANEUVER_STOP
-  };
+};
 
 const int evasive_maneuver_list_length = sizeof(evasive_maneuver_list) / sizeof(evasive_maneuver_list[0]);  
 
@@ -112,10 +113,9 @@ const int acro_maneuver_list[] = {
   HATCH_OPEN,
   EVASIVE_MANEUVER_BACK,
   EVASIVE_MANEUVER_BACK,
+  EVASIVE_MANEUVER_BACK,
   EVASIVE_MANEUVER_RIGHT, 
   EVASIVE_MANEUVER_BACK,
-  EVASIVE_MANEUVER_BACK,
-  EVASIVE_MANEUVER_LEFT, 
   EVASIVE_MANEUVER_BACK,
   EVASIVE_MANEUVER_BACK,
   HATCH_CLOSE,
@@ -245,18 +245,9 @@ void doBumperHitRoutine(){
         return;
       } else {
         doEvasiveManeuverFinished();
+        changeMode(DRIVE_MODE);
       }
     }
-    
-    Serial.println("Check bumper");    
-    if(isBumperHit(BUMPER_TRIG_PIN)){
-      //BUMPER STILL HIT
-      emergencyStop();
-    } else {
-      mav_distance_sensor(3, MAX_DISTANCE-1);            
-      changeMode(DRIVE_MODE);
-    }
-
   }
 }
 
@@ -266,6 +257,7 @@ void doAcroMode(){
         return;
       } else {
         doAcroManeuverFinished();
+        changeMode(DRIVE_MODE);
       }
 }
 
@@ -377,15 +369,20 @@ void doEvasiveManeuver(){
 
 void evasiveManeuver(){
   //Check bumper hit in evasive mode
+  //TOOD: Fix Mess
 
-  if(isBumperHit(BUMPER_TRIG_PIN)){
-    emergencyStop();  
-    initEvasive();
-    return;
-  }
+  int current_maneuver = evasive_maneuver_list[current_evasive_maneuver_pos];
   
   if(current_evasive_maneuver_timer > micros()){
-    executeManeuver(evasive_maneuver_list[current_evasive_maneuver_pos]);            
+    if(current_maneuver != EVASIVE_MANEUVER_START && current_maneuver != EVASIVE_MANEUVER_BACK && current_maneuver != EVASIVE_MANEUVER_STOP){
+      if(isBumperHit(BUMPER_TRIG_PIN)){
+        emergencyStop();  
+        initEvasive();
+        return;
+      }
+    }
+
+    executeManeuver(current_maneuver);            
   } else {
     current_evasive_maneuver_timer = micros() + EVASIVE_INTERVAL;
     if(current_evasive_maneuver_pos < evasive_maneuver_list_length-1) 
@@ -393,6 +390,7 @@ void evasiveManeuver(){
       current_evasive_maneuver_pos++;
     }
   }
+ 
 }
 
 void executeManeuver(int maneuver){
