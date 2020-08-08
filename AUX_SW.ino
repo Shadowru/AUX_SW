@@ -47,7 +47,7 @@ MedianFilter sonar_filter_1(3, 0);
 MedianFilter sonar_filter_2(3, 0);
 
 //BUMPER
-#define BUMPER_INTERVAL 2000
+#define BUMPER_INTERVAL 20
 
 #define BUMPER_TRIG_PIN 7
 
@@ -173,7 +173,7 @@ void setup() {
 //=======================================================
 void loop() {
   //TODO: bumper hit in main cycle
-  doSendHeartbeat();
+  //doSendHeartbeat();
   
   switch(current_work_mode){
     case IDLE_MODE:
@@ -351,20 +351,19 @@ void initEvasive(){
 void doEvasiveManeuver(){
 
   if(evasiveManeuverInit){
-    disarm();
-    delay(100);
+    //disarm();
+    //delay(100);
     setAutoPilotMode(MANUAL_MODE);
-    delay(200);
-    arm();
+    //delay(200);
+    //arm();
     evasiveManeuverInit = false;
     evasiveManeuverFinished = false;
     Serial.println("Init EVM");
     sendInfoMessage("Init EVM");
     current_evasive_maneuver_pos = 0;
     current_evasive_maneuver_timer = micros() + EVASIVE_INTERVAL;
-  } else {
-    evasiveManeuver();     
-  }
+  } 
+  evasiveManeuver();     
 }
 
 void evasiveManeuver(){
@@ -556,7 +555,7 @@ void emergencyStop(){
   if(DEBUG_FLAG){
     Serial.println("EMERGENCY STOP");
   }
-  sendEmergencyMessage("EMERGENCY STOP");
+  //sendEmergencyMessage("EMERGENCY STOP");
   stopMotors();
 }
 
@@ -743,7 +742,7 @@ void setAutoPilotMode(int mode){
 /* This function gets message from the APM and interprete for Mavlink common messages */
 void comm_receive(mavlink_message_t recv_msg, mavlink_status_t recv_status) {
 
-  unsigned long read_timer = millis() + 30;
+  unsigned long read_timer = millis() + 10;
   
   while(SerialMAV.available() > 0) {
 
