@@ -47,7 +47,7 @@ MedianFilter sonar_filter_1(3, 0);
 MedianFilter sonar_filter_2(3, 0);
 
 //BUMPER
-#define BUMPER_INTERVAL 20
+#define BUMPER_INTERVAL 1
 
 #define BUMPER_TRIG_PIN 7
 
@@ -163,7 +163,8 @@ void setup() {
   }
   
   //Mavlink serial init
-  SerialMAV.begin(19200);
+  SerialMAV.begin(115200);
+  //SerialMAV.begin(19200);
   //SerialMAV.begin(9600);
 
   //Start
@@ -192,7 +193,7 @@ void loop() {
       break;
   }
   //TODO : FIX SET ACRO DRIVE MODE IN RCV PROCEDURE
-  comm_receive(recv_msg, recv_status);//delay(10);
+  //comm_receive(recv_msg, recv_status);//delay(10);
 }
 
 //=======================================================
@@ -227,14 +228,14 @@ void doDriveRoutine(){
 
   if(sonarTimer < micros()){
     sonarTimer = micros() + SONAR_INTERVAL;
-    doSonar();
+    //doSonar();
   }
 
 }
 
 void doBumperHitRoutine(){
  
-  mav_distance_sensor(3, MIN_DISTANCE + 1);
+  //mav_distance_sensor(3, MIN_DISTANCE + 1);
   
   if(bumperTimer < micros()){
     bumperTimer = micros() + BUMPER_INTERVAL;
@@ -359,7 +360,7 @@ void doEvasiveManeuver(){
     evasiveManeuverInit = false;
     evasiveManeuverFinished = false;
     Serial.println("Init EVM");
-    sendInfoMessage("Init EVM");
+    //sendInfoMessage("Init EVM");
     current_evasive_maneuver_pos = 0;
     current_evasive_maneuver_timer = micros() + EVASIVE_INTERVAL;
   } 
@@ -465,8 +466,8 @@ boolean doBumperHit(){
       Serial.println("BUMPER HIT");
     }
     emergencyStop();
-    mav_distance_sensor(3, MIN_DISTANCE + 1);
-    sendEmergencyMessage("BUMPER HIT");
+    //mav_distance_sensor(3, MIN_DISTANCE + 1);
+    //sendEmergencyMessage("BUMPER HIT");
     return true;
   }
   return false;
@@ -491,6 +492,8 @@ void doSendHeartbeat(){
 //SONAR FUNCTIONS
 void doSonar(){
 
+    return;
+    
     int sonar_1_distance = readSonar(SONAR1_TRIG_PIN, SONAR1_ECHO_PIN);
     sonar_filter_1.in(sonar_1_distance);
     sonar_1_distance = sonar_filter_1.out(); 
@@ -608,7 +611,7 @@ void changeMode(int mode){
    if(DEBUG_FLAG){
     Serial.println("SET MODE : " + String(mode)); 
    }
-   sendInfoMessage("MODE:" + String(mode));
+   //sendInfoMessage("MODE:" + String(mode));
 }
 
 void getMode(){
@@ -617,6 +620,7 @@ void getMode(){
 
 
 void rc_override(int mav_steer, int mav_speed){
+  Serial.println("RC_OVERRIDE");
   mavlink_message_t msg;
   
   mavlink_msg_rc_channels_override_pack(
