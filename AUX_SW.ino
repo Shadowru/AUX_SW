@@ -1,12 +1,14 @@
 #include <SoftwareSerial.h>
 
+#include "./DFRobotDFPlayerMini/DFRobotDFPlayerMini.cpp"
+
 #include "./mavlink/common/mavlink.h"
 #include "MedianFilter.h"
 //#include "./sonar/Sonar.h"
 
 //UART
-#define RX_PIN 6
-#define TX_PIN 5
+#define RX_PIN 12
+#define TX_PIN 10
 
 SoftwareSerial SerialMAV(RX_PIN, TX_PIN, false);
 //#define SerialMAV Serial1
@@ -141,6 +143,11 @@ unsigned long heartbeat_timer = 0;
 
 uint32_t current_autopilot_mode = 0xFF;
 
+//DF player
+SoftwareSerial Serialmp3(4, 5, false);
+DFRobotDFPlayerMini myDFPlayer;
+
+
 //=======================================================
 void setup() {
   //Init SONAR 1
@@ -163,13 +170,20 @@ void setup() {
   }
   
   //Mavlink serial init
-  SerialMAV.begin(115200);
-  //SerialMAV.begin(19200);
+  //SerialMAV.begin(115200);
+  SerialMAV.begin(19200);
   //SerialMAV.begin(9600);
 
+  //MP3
+  Serialmp3.begin(9600);
+  myDFPlayer.begin(Serialmp3);
+  myDFPlayer.volume(30);  //Set volume value. From 0 to 30
+  
   //Start
   changeMode(IDLE_MODE);
 }
+
+
 
 //=======================================================
 void loop() {
@@ -193,14 +207,14 @@ void loop() {
       break;
   }
   //TODO : FIX SET ACRO DRIVE MODE IN RCV PROCEDURE
-  //comm_receive(recv_msg, recv_status);//delay(10);
+  comm_receive(recv_msg, recv_status);//delay(10);
 }
 
 //=======================================================
 //DRIVE MODES
 
 void doIdleMode(){
-  sendInfoMessage("AUX SW v0.1");
+  sendInfoMessage("AUX SW v0.2");
   delay(500);
   stopMotors();
   delay(500);
@@ -611,6 +625,7 @@ void changeMode(int mode){
    if(DEBUG_FLAG){
     Serial.println("SET MODE : " + String(mode)); 
    }
+   myDFPlayer.play(mode);
    //sendInfoMessage("MODE:" + String(mode));
 }
 
