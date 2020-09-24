@@ -51,7 +51,7 @@ MedianFilter sonar_filter_2(3, 0);
 //BUMPER
 #define BUMPER_INTERVAL 1
 
-#define BUMPER_TRIG_PIN 7
+#define BUMPER_TRIG_PIN 2
 
 const boolean DEBUG_FLAG = true;
 
@@ -157,7 +157,7 @@ void setup() {
   pinMode(SONAR2_TRIG_PIN, OUTPUT); 
   pinMode(SONAR2_ECHO_PIN, INPUT);    
   //Init BUMPER
-  pinMode(BUMPER_TRIG_PIN, INPUT_PULLDOWN); 
+  pinMode(BUMPER_TRIG_PIN, INPUT_PULLUP); 
   // init timer
   sonarTimer = micros();
   bumperTimer = micros();
@@ -488,7 +488,7 @@ boolean doBumperHit(){
 }
 
 boolean isBumperHit(int bumper_pin){
-  boolean isBumperHit = digitalRead(bumper_pin) == 0;
+  boolean isBumperHit = digitalRead(bumper_pin) == 1;
   //TODO: filter contact bounce
   //isBumperHit = false;
   return isBumperHit;
