@@ -57,12 +57,17 @@ const boolean DEBUG_FLAG = true;
 
 unsigned long bumperTimer = 0;
 
+//MODE_SWITCHER
+
+#define DO_PARKING 1
+
 // WORK MODES
 const int INIT_MODE = 1;
 const int IDLE_MODE = 2;
 const int DRIVE_MODE = 3;
 const int DRIVE_BUMPERHIT_MODE = 4;
 const int DRIVE_ACRO_MODE = 5;
+const int DRIVE_PARKING_MODE = 6;
 
 // WORK MODE
 int current_work_mode = INIT_MODE;
@@ -203,6 +208,8 @@ void loop() {
     case DRIVE_ACRO_MODE:
       doAcroMode();
       break;
+    case DRIVE_PARKING_MODE:
+      doParkingMode();
     default:
       break;
   }
@@ -274,6 +281,16 @@ void doAcroMode(){
         doAcroManeuverFinished();
         changeMode(DRIVE_MODE);
       }
+}
+
+//=====================================================
+//PARKING MODE
+void initParkingMode(){
+  
+}
+
+void doParkingMode(){
+  
 }
 
 //=====================================================
@@ -629,7 +646,7 @@ void changeMode(int mode){
    //sendInfoMessage("MODE:" + String(mode));
 }
 
-void getMode(){
+int getMode(){
   return current_work_mode;
 }
 
@@ -756,7 +773,7 @@ void setAutoPilotMode(int mode){
   SerialMAV.write(buf, len);
 }
 
-#define ACRO_MODE 1
+#define ARDUPILOT_ACRO_MODE 1
 
 /* This function gets message from the APM and interprete for Mavlink common messages */
 void comm_receive(mavlink_message_t recv_msg, mavlink_status_t recv_status) {
@@ -788,9 +805,14 @@ void comm_receive(mavlink_message_t recv_msg, mavlink_status_t recv_status) {
                   Serial.println(current_autopilot_mode);
                 }
                 //TODO: MOVE TO ACRO ROUTINE
-                if(current_autopilot_mode == ACRO_MODE && getMode != DRIVE_ACRO_MODE){
-                  changeMode(DRIVE_ACRO_MODE);
-                  initAcroMode();
+                if(current_autopilot_mode == ARDUPILOT_ACRO_MODE && getMode() != DRIVE_ACRO_MODE){
+                  if(DO_PARKING){
+                    changeMode(DRIVE_PARKING_MODE);
+                    initParkingMode();
+                  } else {
+                    changeMode(DRIVE_ACRO_MODE);
+                    initAcroMode();
+                  }
                 }
                 
               }
