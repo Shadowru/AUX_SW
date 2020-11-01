@@ -1,6 +1,6 @@
 #include <SoftwareSerial.h>
 
-#include "./DFRobotDFPlayerMini/DFRobotDFPlayerMini.cpp"
+//#include "./DFRobotDFPlayerMini/DFRobotDFPlayerMini.cpp"
 
 #include "./mavlink/common/mavlink.h"
 #include "MedianFilter.h"
@@ -9,6 +9,9 @@
 //UART
 #define RX_PIN 12
 #define TX_PIN 10
+
+//Cable finder
+int analogInPin[2]={A2,A4};//left,right
 
 SoftwareSerial SerialMAV(RX_PIN, TX_PIN, false);
 //#define SerialMAV Serial1
@@ -37,6 +40,23 @@ unsigned long sonarTimer = 0;
 
 const int MIN_DISTANCE = 20;
 const int MAX_DISTANCE = 3000;
+
+//Cablefinder
+int i,j,v1,toq,minv=1000,maxv=0,q=0,arr_q[2];
+int maxq[2] = {8,8};
+int errorv=200,toi=20,toj=20,looseevenone,steer,speedf,angle;
+int antidancer=100;
+int lastturn=1;//1=left,2=right
+int cabletouch=0;//0-gotobasestation cable; 1-folow the cable
+int lastdat=1;
+const int centersteer=1500;
+const int timetosteer=100;
+const int speedsteer=70;
+const int centerspeed=1500;
+const int speedfront=70;
+const int errorpq=30; 
+uint32_t dancelimit=850000;
+uint32_t myTimerdancer;
 
 //SONAR 1
 #define SONAR1_TRIG_PIN 12
@@ -149,8 +169,8 @@ unsigned long heartbeat_timer = 0;
 uint32_t current_autopilot_mode = 0xFF;
 
 //DF player
-SoftwareSerial Serialmp3(4, 5, false);
-DFRobotDFPlayerMini myDFPlayer;
+//SoftwareSerial Serialmp3(4, 5, false);
+//DFRobotDFPlayerMini myDFPlayer;
 
 
 //=======================================================
@@ -180,9 +200,9 @@ void setup() {
   //SerialMAV.begin(9600);
 
   //MP3
-  Serialmp3.begin(9600);
-  myDFPlayer.begin(Serialmp3);
-  myDFPlayer.volume(30);  //Set volume value. From 0 to 30
+  //Serialmp3.begin(9600);
+  //myDFPlayer.begin(Serialmp3);
+  //myDFPlayer.volume(30);  //Set volume value. From 0 to 30
   
   //Start
   changeMode(IDLE_MODE);
@@ -290,7 +310,126 @@ void initParkingMode(){
 }
 
 void doParkingMode(){
-  
+//Получаем в процентном отношении данные с каждого датчика к максимуму этого датчика
+  cableper();
+  checkcable();
+
+    if(arr_q[1]>errorpq and arr_q[2]>errorpq){
+      //----------------------------- Обработка следования кабелю.
+      //Если оба датчика видят кабель более errorpq %, правим угол во время движения
+      looseevenone=0;//Оба датчика видят поле
+      cabletouch=1; //Кабель видел
+      speedf=centerspeed+speedfront;
+      if(arr_q[1]>arr_q[2]){
+          angle=arr_q[1]-arr_q[2];
+          steer=centersteer-(angle*speedsteer)/100;
+          lastturn=1;
+        }
+      if(arr_q[2]>arr_q[1]){
+          angle=arr_q[2]-arr_q[1];
+          steer=centersteer+(angle*speedsteer)/100;
+          lastturn=2;
+        }
+       }else if(arr_q[1]<errorpq and arr_q[2]<errorpq){
+        Serial.println("!!!No cable!!!");
+        looseevenone=1; //Если потерял оба датчика, смотрим последний поворот и крутим в другую сторону
+        steer=centersteer;
+        
+        if(lastturn==1){
+          //Если поворачивали влево, поворачиваем вправо
+             steer=centersteer+speedsteer;
+          }else{
+             steer=centersteer-speedsteer;
+          }
+       }else{
+        looseevenone=1;
+        //Если один из датчиков видит, а другой нет. Крутимся на месте
+        //Увеличиваем или уменьшаем коэффициент для угла поворота, чтобы не танцевать
+        if(micros()-myTimerdancer>dancelimit){
+          //Serial.println("DANCE PLUS+++++ \t");
+          if(antidancer<100){
+              antidancer+=10;
+              //Serial.println("++++++++++++++++ \t");
+            }
+          }else {
+            if(antidancer>10){
+              antidancer-=10;
+              //Serial.println("------------------ \t");
+              }
+          }
+//                  Serial.print("mydancer=");
+//                  Serial.print(micros()-myTimerdancer);
+//                  Serial.print("\t antidancer=");
+//                  Serial.print(antidancer);
+//                  Serial.print("\t lastdat=");
+//                  Serial.print(lastdat);
+//                  Serial.print("\t myTimerdancer=");
+//                  Serial.print(myTimerdancer);
+//                  Serial.print("\t micros=");
+//                  Serial.print(micros());
+//                  Serial.println("\t");
+          speedf=centerspeed; 
+          
+          if(arr_q[1]>arr_q[2]){
+              steer=centersteer-speedsteer*antidancer/100;
+              if(lastdat==2){
+                myTimerdancer = micros(); 
+                //Обновляем таймер когда начал видеть один лишь датчик, после другого
+              }
+              lastdat=1;
+            }
+          if(arr_q[2]>arr_q[1]){
+                steer=centersteer+speedsteer*antidancer/100;
+                if(lastdat==1){
+                myTimerdancer = micros(); 
+                //Обновляем таймер когда начал видеть один лишь датчик, после другого
+              }
+                lastdat=2;
+              }
+          }
+
+          
+//Если еще не видел кабель просто едем тихо вперед
+      if(cabletouch==0){          
+          steer=centersteer;
+          speedf=centerspeed+speedfront;
+          Serial.println("Cable search");
+      }
+}
+
+void checkcable() {
+  for(i=1;i<=2;i++){
+    minv=1000;
+    maxv=0;
+    q=0;
+    //Собираем измерения макс и мин напряжения в цикле 
+    for (i = 0; i < toi; i++) {
+        for (j = 0; j < toj; j++) {
+          v1 = analogRead(i);
+          if(v1>maxv){
+            maxv=v1;
+          }
+          if(v1<minv){
+            minv=v1;
+          }
+        }
+        toq=maxv-minv;
+        q=q+toq;
+    }
+    if(q<errorv){
+      q=0;
+    }
+      arr_q[i]=q;
+  }
+}
+
+void cableper(){
+  for(i=1;i<=2;i++){
+    if(arr_q[i]>maxq[i] and arr_q[i]<2*maxq[i]){
+      maxq[i]=arr_q[i];
+    }
+    arr_q[i]=arr_q[i]*100/maxq[i];
+  }
 }
 
 //=====================================================
@@ -642,7 +781,7 @@ void changeMode(int mode){
    if(DEBUG_FLAG){
     Serial.println("SET MODE : " + String(mode)); 
    }
-   myDFPlayer.play(mode);
+   //myDFPlayer.play(mode);
    //sendInfoMessage("MODE:" + String(mode));
 }
 
