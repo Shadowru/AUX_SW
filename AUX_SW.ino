@@ -1,5 +1,3 @@
-#include <SoftwareSerial.h>
-
 //#include "./DFRobotDFPlayerMini/DFRobotDFPlayerMini.cpp"
 
 #include "./mavlink/common/mavlink.h"
@@ -11,10 +9,10 @@
 #define TX_PIN 10
 
 //Cable finder
-int analogInPin[2]={A2,A4};//left,right
+//int analogInPin[2]={A2,A4};//left,right
 
-SoftwareSerial SerialMAV(RX_PIN, TX_PIN, false);
-//#define SerialMAV Serial1
+//SoftwareSerial SerialMAV(RX_PIN, TX_PIN, false);
+#define SerialMAV Serial1
 
 //mv buffer
 uint8_t buf[MAVLINK_MAX_PACKET_LEN];
