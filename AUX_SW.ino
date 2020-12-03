@@ -211,7 +211,7 @@ void setup() {
 //=======================================================
 void loop() {
   //TODO: bumper hit in main cycle
-  //doSendHeartbeat();
+  doSendHeartbeat();
   
   switch(current_work_mode){
     case IDLE_MODE:
