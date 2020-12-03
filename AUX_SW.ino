@@ -1,5 +1,3 @@
-//#include "./DFRobotDFPlayerMini/DFRobotDFPlayerMini.cpp"
-
 #include "./mavlink/common/mavlink.h"
 #include "MedianFilter.h"
 //#include "./sonar/Sonar.h"
@@ -10,9 +8,6 @@
 
 //Cable finder
 //int analogInPin[2]={A2,A4};//left,right
-
-//SoftwareSerial SerialMAV(RX_PIN, TX_PIN, false);
-#define SerialMAV Serial1
 
 //mv buffer
 uint8_t buf[MAVLINK_MAX_PACKET_LEN];
@@ -69,7 +64,7 @@ MedianFilter sonar_filter_2(3, 0);
 //BUMPER
 #define BUMPER_INTERVAL 1
 
-#define BUMPER_TRIG_PIN 2
+#define BUMPER_TRIG_PIN PB4
 
 const boolean DEBUG_FLAG = true;
 
@@ -193,9 +188,9 @@ void setup() {
   }
   
   //Mavlink serial init
-  //SerialMAV.begin(115200);
-  SerialMAV.begin(19200);
-  //SerialMAV.begin(9600);
+  Serial1.begin(115200);
+  //Serial1.begin(19200);
+  //Serial1.begin(9600);
 
   //MP3
   //Serialmp3.begin(9600);
@@ -801,7 +796,7 @@ void rc_override(int mav_steer, int mav_speed){
   );    
   
   uint16_t len = mavlink_msg_to_send_buffer(buf, &msg);
-  SerialMAV.write(buf, len);
+  Serial1.write(buf, len);
 }
 
 // distance - mm
@@ -825,7 +820,7 @@ void mav_distance_sensor(int sensor_id, int distance){
   );
   
   uint16_t len = mavlink_msg_to_send_buffer(buf, &msg);
-  SerialMAV.write(buf, len);
+  Serial1.write(buf, len);
 }
 
 void mavlink_message(int severity, String message){
@@ -842,7 +837,7 @@ void mavlink_message(int severity, String message){
   mavlink_msg_statustext_pack(0x01, MAV_COMP_ID_OBSTACLE_AVOIDANCE, &msg, severity, message_buf);
   
   uint16_t len = mavlink_msg_to_send_buffer(buf, &msg);
-  SerialMAV.write(buf, len);
+  Serial1.write(buf, len);
 }
 
 
@@ -858,7 +853,7 @@ void mav_arm_pack(boolean state) {
     mavlink_msg_command_long_pack(0xFF, 0xBE, &msg, 1, 1, 400, 1,0.0,0,0,0,0,0,0);
   }
   uint16_t len = mavlink_msg_to_send_buffer(buf, &msg);
-  SerialMAV.write(buf, len);
+  Serial1.write(buf, len);
 }
 
 void sendServoLong2(int servo_pwm){
@@ -873,7 +868,7 @@ void sendServoLong2(int servo_pwm){
   );    
   
   uint16_t len = mavlink_msg_to_send_buffer(buf, &msg);
-  SerialMAV.write(buf, len);
+  Serial1.write(buf, len);
 
 }
 
@@ -889,7 +884,7 @@ void sendServoLong(float servo_pwm){
   0,0,0,0,0);
   
   uint16_t len = mavlink_msg_to_send_buffer(buf, &msg);
-  SerialMAV.write(buf, len);
+  Serial1.write(buf, len);
 }
 
 void setAutoPilotModeLong(int mode){
@@ -898,7 +893,7 @@ void setAutoPilotModeLong(int mode){
   mavlink_msg_command_long_pack(0xFF, 0xBE, &msg, 1, 1, MAV_CMD_DO_SET_MODE, mode, 0, 0,0,0,0,0,0);
   
   uint16_t len = mavlink_msg_to_send_buffer(buf, &msg);
-  SerialMAV.write(buf, len);
+  Serial1.write(buf, len);
 }
 
 void setAutoPilotMode(int mode){
@@ -907,7 +902,7 @@ void setAutoPilotMode(int mode){
   mavlink_msg_set_mode_pack(0xFF, 190, &msg, 1, 1, mode);
   
   uint16_t len = mavlink_msg_to_send_buffer(buf, &msg);
-  SerialMAV.write(buf, len);
+  Serial1.write(buf, len);
 }
 
 #define ARDUPILOT_ACRO_MODE 1
@@ -917,14 +912,14 @@ void comm_receive(mavlink_message_t recv_msg, mavlink_status_t recv_status) {
 
   unsigned long read_timer = millis() + 10;
   
-  while(SerialMAV.available() > 0) {
+  while(Serial1.available() > 0) {
 
     if(read_timer < millis()){
       //Serial.println("RCV_TIMEOUT");
       return;
     }
     
-    uint8_t c = SerialMAV.read();
+    uint8_t c = Serial1.read();
     
     // Try to get a new message
     if(mavlink_parse_char(MAVLINK_COMM_0, c, &recv_msg, &recv_status)) {
@@ -968,5 +963,5 @@ void mav_heartbeat_pack() {
   // Pack the message
   mavlink_msg_heartbeat_pack(0x01, MAV_COMP_ID_OBSTACLE_AVOIDANCE, &msg, MAV_TYPE_CAMERA, MAV_AUTOPILOT_INVALID, 0x01, 0x00, MAV_STATE_ACTIVE);
   uint16_t len = mavlink_msg_to_send_buffer(buf, &msg);
-  SerialMAV.write(buf, len);
+  Serial1.write(buf, len);
 }
