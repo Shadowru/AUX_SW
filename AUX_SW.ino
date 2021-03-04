@@ -13,6 +13,8 @@
 uint8_t buf[MAVLINK_MAX_PACKET_LEN];
 int packet_sequence = 0;
 
+uint16_t cells[10];
+
 //MAVLINK MODES
 #define MANUAL_MODE 0
 #define AUTO_MODE 10
@@ -64,7 +66,7 @@ MedianFilter sonar_filter_2(3, 0);
 //BUMPER
 #define BUMPER_INTERVAL 1
 
-#define BUMPER_TRIG_PIN PB4
+#define BUMPER_TRIG_PIN 2
 
 const boolean DEBUG_FLAG = true;
 
@@ -784,7 +786,7 @@ int getMode(){
 
 
 void rc_override(int mav_steer, int mav_speed){
-  Serial.println("RC_OVERRIDE");
+  //Serial.println("RC_OVERRIDE");
   mavlink_message_t msg;
   
   mavlink_msg_rc_channels_override_pack(
@@ -924,6 +926,15 @@ void comm_receive(mavlink_message_t recv_msg, mavlink_status_t recv_status) {
     // Try to get a new message
     if(mavlink_parse_char(MAVLINK_COMM_0, c, &recv_msg, &recv_status)) {
       switch(recv_msg.msgid) {
+        case MAVLINK_MSG_ID_BATTERY_STATUS: //147
+          
+          uint16_t batteryMilliVolts = mavlink_msg_battery_status_get_voltages(&recv_msg, 0);
+          uint8_t batteryChangeState = mavlink_msg_battery_status_get_charge_state(&recv_msg);
+          Serial.print("Battery : ");
+          Serial.println(batteryMilliVolts);
+          Serial.print("mv Change state : ");
+          Serial.println(batteryChangeState);
+          break;
         case MAVLINK_MSG_ID_HEARTBEAT:  // #0: Heartbeat
           {
             uint8_t base_mode = mavlink_msg_heartbeat_get_base_mode(&recv_msg);
